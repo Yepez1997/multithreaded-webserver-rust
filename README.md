@@ -2,7 +2,7 @@
 multi-threaded-webserver built with rust. project from rust docs. 
 
 
-```
+```rust
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
         // let thread = thread::spwan(|| {receiver} );
@@ -18,4 +18,4 @@ impl Worker {
         Worker {id, thread};
     }
 }
-```rust
+```
