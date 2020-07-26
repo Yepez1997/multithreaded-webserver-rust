@@ -12,7 +12,8 @@ fn main() {
     
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap(); // connect to port 7878 
     let pool = ThreadPool::new(4)
-    for stream in listener.incoming() {
+    // shutdown gracefully after 10 requests
+    for stream in listener.incoming().take(15) {
         let stream = stream.unwrap(); // returns tcp stream
         // handle_tcp_connection_final(stream);
         pool.execute(|| { 
@@ -27,7 +28,6 @@ fn handle_tcp_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1024]; // read stream into a buffer 
     stream.read(&mut buffer).unwrap();
     println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-
 }
 
 

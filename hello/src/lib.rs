@@ -9,6 +9,12 @@ use std::sync::Mutex;
 
 type Job = Box(dyn, FnOnce()) + Send + 'static>;
 
+// used to signal to exit a thread 
+enum Message {
+    NewJob(Job);
+    Terminate,
+}
+
 // channel to communicate between different threads 
 
 // create a channel and hold on the receiving side. 
@@ -19,7 +25,8 @@ pub struct ThreadPool {
 
     // threads: Vec<thread::JoinedHandle<()>>,
     workers: Vec<Worker>
-    sender: mpsc::Sender<Job>
+    // send jobs to workers
+    sender: mpsc::Sender<Message>
 }
 
 
@@ -53,6 +60,7 @@ impl ThreadPool {
             workers.push(Worker::new(i), Arc::clone(&receiver));
         }
 
+        // pool of workers that are listenting to receive a job, and a sender 
         ThreadPool {workers, sender}
 
     }
@@ -62,14 +70,40 @@ impl ThreadPool {
     pub fn execute<F>(&self, f: F)
     where F: FnOnce() + Send + 'static, {
         let job = Box::new(f);
-        self.sender.send(job).unwrap();
+        // send the job to a worker 
+        self.sender.send(Message::NewJob(job)).unwrap();
+    }
+}
+
+// should join all threads and make sure the threads finish their work 
+// i.e if something bad happens, the worker should be able to 
+// finish their proccess
+// stop accepting requests
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+
+        // terminate workers i.e do not allow any more requests
+        for worker in self.workers {
+            self.sender.send(Message::Terminate).unwrap();
+        }
+
+        // allow workers to finish
+        for worker in self.workers {
+            println!("Shutting down worker {}", worker.id);
+            // worker.thread.join().unwrap()
+            // pull thread out of the worker 
+            // recall the take method takes some variant out and leaves none in place
+            if let Some(thread) =  worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
     }
 }
 
 // workers hold the receiving side of the channell
 struct Worker {
     id: usize,
-    thread: thread.JoinedHandle<()>
+    thread: Option<thread.JoinedHandle<()>>
 }
 
 impl Worker {
@@ -79,11 +113,27 @@ impl Worker {
             // lock to aquire the mutex
             // if the lock is successfully receievd, call recv to receive a job from the channel 
             // recv blocks if there is no job 
-            // 
-            let job = receiver.lock().unwrap().recv().unwrap();
-            println("Worker {} received a job and executing", id);
-            job();
+            // unwrap is temp.
+
+            let message = receiver.lock().unwrap().recv().unwrap();
+            
+            // similair to go channels ...
+            match message { 
+                Message::NewJob(job) => {
+                    println("Worker {} received a job and executing", id);
+                    job();
+                }
+                Message::Terminate => {
+                    println!("Worker {} was told to terminate.", id);
+                    break;
+                }
+            }
+
         })
-        Worker {id, thread};
+        Worker {
+            id, 
+            Some(thread)
+        };
     }
 }
+
