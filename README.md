@@ -1,8 +1,14 @@
 # multithreaded-webserver-rust
 multi-threaded-webserver built with rust. project from rust docs. 
 
-
+worker
 ```rust
+// workers hold the receiving side of the channell
+struct Worker {
+    id: usize,
+    thread: thread.JoinedHandle<()>
+}
+
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
         // let thread = thread::spwan(|| {receiver} );
@@ -20,7 +26,26 @@ impl Worker {
 }
 ```
 
+thread pool 
 ```rust
+// create a channel and hold on the receiving side. 
+pub struct ThreadPool {
+
+    // each of the threads returns a Join handle method 
+    // refer to thread::spawn documentation.
+
+    // threads: Vec<thread::JoinedHandle<()>>,
+    workers: Vec<Worker>
+    sender: mpsc::Sender<Job>
+}
+
+
+// executes connections asychronously
+
+// worker will create threads and have them wait 
+// sends code from thread pool to a thread.
+
+//  side note: similar to go interface
 impl ThreadPool {
     // create a new ThreadPool 
 
